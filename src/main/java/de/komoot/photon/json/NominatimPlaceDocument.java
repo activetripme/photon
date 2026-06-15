@@ -8,6 +8,7 @@ import de.komoot.photon.PhotonDocAddressSet;
 import de.komoot.photon.nominatim.model.AddressRow;
 import de.komoot.photon.nominatim.model.AddressType;
 import de.komoot.photon.nominatim.model.NameMap;
+import de.komoot.photon.nominatim.model.NameNormalizer;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 import org.locationtech.jts.geom.*;
@@ -33,8 +34,13 @@ public class NominatimPlaceDocument {
     private static final GeoJsonReader jsonReader = new GeoJsonReader();
 
     public PhotonDoc asSimpleDoc(Set<String> languages) {
+        return asSimpleDoc(languages, NameNormalizer.empty());
+    }
+
+    public PhotonDoc asSimpleDoc(Set<String> languages, NameNormalizer normalizer) {
         if (!names.isEmpty()) {
             doc.names(NameMap.makeForPlace(names, languages));
+            normalizer.applyTo(doc);
         }
 
         if (address != null) {
@@ -44,8 +50,14 @@ public class NominatimPlaceDocument {
     }
 
     public Iterable<PhotonDoc> asMultiAddressDocs(String @Nullable [] countryFilter, Set<String> languages) {
+        return asMultiAddressDocs(countryFilter, languages, NameNormalizer.empty());
+    }
+
+    public Iterable<PhotonDoc> asMultiAddressDocs(String @Nullable [] countryFilter, Set<String> languages,
+                                                   NameNormalizer normalizer) {
         if (!names.isEmpty()) {
             doc.names(NameMap.makeForPlace(names, languages));
+            normalizer.applyTo(doc);
         }
 
         if (countryFilter != null

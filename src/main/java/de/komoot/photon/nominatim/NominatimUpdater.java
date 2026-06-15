@@ -99,7 +99,7 @@ public class NominatimUpdater extends NominatimConnector {
 
         addressCache = new NominatimAddressCache(dataAdapter, dbProperties.getLanguages());
 
-        final var placeRowMapper = new PlaceRowMapper(dbutils, dbProperties.getLanguages(), dbProperties.getSupportGeometries());
+        final var placeRowMapper = new PlaceRowMapper(dbutils, dbProperties.getLanguages(), dbProperties.getSupportGeometries(), dbProperties.getNameNormalizer());
         placeBaseSQL = placeRowMapper.makeBaseSelect();
 
         placeToNominatimResult = (rs, rowNum) -> {

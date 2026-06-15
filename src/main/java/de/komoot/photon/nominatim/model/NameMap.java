@@ -24,6 +24,11 @@ public class NameMap extends AbstractMap<String, String> {
         return entries.get(key);
     }
 
+    @Override
+    public @Nullable String put(String key, String value) {
+        return entries.put(key, value);
+    }
+
     public static NameMap makeForPlace(Map<String, @Nullable String> source, Iterable<String> languages) {
         return new NameMap()
                 .setLocaleNames(source, languages)

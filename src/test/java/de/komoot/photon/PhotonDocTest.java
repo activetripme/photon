@@ -1,6 +1,7 @@
 package de.komoot.photon;
 
 import de.komoot.photon.nominatim.model.AddressType;
+import de.komoot.photon.nominatim.model.NameMap;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -42,6 +43,27 @@ class PhotonDocTest {
 
         assertThat(doc.getCountryCode())
                 .isEqualTo("DE");
+    }
+
+    @Test
+    void testCopyConstructorCopiesDisplayName() {
+        var display = new NameMap();
+        display.put("default", "озеро Байкал");
+
+        PhotonDoc doc = new PhotonDoc("1", "W", 2, "water", "lake");
+        doc.displayName(display);
+
+        PhotonDoc copy = new PhotonDoc(doc);
+        assertThat(copy.getDisplayName()).isEqualTo(display);
+        assertThat(copy.getDisplayName().get("default")).isEqualTo("озеро Байкал");
+    }
+
+    @Test
+    void testDisplayNameSetterGetter() {
+        PhotonDoc doc = new PhotonDoc();
+        var display = NameMap.makeForPlace(Map.of("name", "озеро Байкал"), Set.of());
+        doc.displayName(display);
+        assertThat(doc.getDisplayName()).isSameAs(display);
     }
 
 }

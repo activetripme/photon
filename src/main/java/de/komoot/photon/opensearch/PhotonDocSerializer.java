@@ -69,7 +69,12 @@ public class PhotonDocSerializer extends StdSerializer<PhotonDoc> {
         }
 
         if (isNamed) {
-            gen.writeObjectField(DocFields.NAME, value.getName());
+            // _source.name = полное имя (displayName) для отдачи в API как properties.name;
+            // fallback на name, если displayName не задан. Поиск идёт по collector.* из
+            // value.getName() (чистое, без type-prefix) ниже.
+            var displayName = value.getDisplayName();
+            gen.writeObjectField(DocFields.NAME,
+                    (displayName != null && !displayName.isEmpty()) ? displayName : value.getName());
 
             for (var entry : value.getName().entrySet()) {
                 final var key = entry.getKey();

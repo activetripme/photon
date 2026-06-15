@@ -52,6 +52,9 @@ public class PhotonDoc {
     private String tagValue = DEFAULT_OSM_VALUE;
 
     private NameMap name = new NameMap();
+    // Полное имя (оригинал до strip type-prefix) для отдачи в API как properties.name.
+    // См. NameNormalizer: name режется для поиска, displayName хранит оригинал для выдачи.
+    private NameMap displayName = new NameMap();
     @Nullable private String postcode = null;
     private Map<String, Object> extratags = Map.of();
     private Set<String> categorySet = Set.of();
@@ -83,6 +86,7 @@ public class PhotonDoc {
         this.tagKey = other.tagKey;
         this.tagValue = other.tagValue;
         this.name = other.name;
+        this.displayName = other.displayName;
         this.houseNumber = other.houseNumber;
         this.postcode = other.postcode;
         this.extratags = other.extratags;
@@ -124,6 +128,11 @@ public class PhotonDoc {
 
     public PhotonDoc names(NameMap names) {
         this.name = names;
+        return this;
+    }
+
+    public PhotonDoc displayName(NameMap displayName) {
+        this.displayName = displayName;
         return this;
     }
 
@@ -331,6 +340,10 @@ public class PhotonDoc {
 
     public NameMap getName() {
         return this.name;
+    }
+
+    public NameMap getDisplayName() {
+        return this.displayName;
     }
 
     @Nullable

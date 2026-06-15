@@ -2,7 +2,9 @@ package de.komoot.photon.config;
 
 import com.beust.jcommander.Parameter;
 import de.komoot.photon.ConfigExtraTags;
+import de.komoot.photon.ConfigNamePrefixes;
 import de.komoot.photon.DatabaseProperties;
+import de.komoot.photon.nominatim.model.NameNormalizer;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
@@ -42,6 +44,17 @@ public class ImportFilterConfig {
             Set up database for reverse geocoding only""")
     private boolean reverseOnly = false;
 
+    @Parameter(names = "-name-prefixes-file", category = GROUP, placeholder = "FILE", description = """
+            JSON file with type prefixes to strip from place names during import
+            (e.g. "озеро Байкал" -> "Байкал" for search; full name kept for display).
+            Format: {"name_prefixes": {"ru": [...], "en": [...], "default": [...]}}
+            """)
+    @Nullable private String namePrefixesFile = null;
+
+    // Кеш нормализатора: getNameNormalizer() иначе перечитывает и парсит JSON-файл
+    // на каждый вызов (а вызывается на нескольких путях импорта).
+    @Nullable private NameNormalizer cachedNameNormalizer = null;
+
     public Set<String> getLanguages() {
         return new HashSet<>(languages);
     }
@@ -60,6 +73,20 @@ public class ImportFilterConfig {
         return importGeometryColumn;
     }
 
+    @Nullable
+    public String getNamePrefixesFile() {
+        return namePrefixesFile;
+    }
+
+    /** Резолвит NameNormalizer из -name-prefixes-file + выбранных языков (с кешем). */
+    public NameNormalizer getNameNormalizer() {
+        if (cachedNameNormalizer == null) {
+            var cfg = ConfigNamePrefixes.loadFromFile(namePrefixesFile);
+            cachedNameNormalizer = new NameNormalizer(cfg.forLanguages(getLanguages()));
+        }
+        return cachedNameNormalizer;
+    }
+
     public DatabaseProperties getDatabaseProperties() {
         final var dbProps = new DatabaseProperties();
         if (!languages.isEmpty()) {
@@ -67,6 +94,7 @@ public class ImportFilterConfig {
         }
         dbProps.setSupportGeometries(importGeometryColumn);
         dbProps.setReverseOnly(reverseOnly);
+        dbProps.setNameNormalizer(getNameNormalizer());
 
         if (extraTags != null) {
             dbProps.setExtraTags(extraTags);

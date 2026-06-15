@@ -10,6 +10,7 @@ import de.komoot.photon.UsageException;
 import de.komoot.photon.nominatim.ImportThread;
 import de.komoot.photon.nominatim.model.AddressRow;
 import de.komoot.photon.nominatim.model.NameMap;
+import de.komoot.photon.nominatim.model.NameNormalizer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jspecify.annotations.NullMarked;
@@ -33,6 +34,7 @@ public class JsonReader {
     private ConfigExtraTags extraTags = new ConfigExtraTags();
     private String @Nullable [] countryFilter = null;
     private Set<String> languages = Set.of();
+    private NameNormalizer nameNormalizer = NameNormalizer.empty();
 
     public JsonReader(File inputFile) throws IOException {
         parser = configureObjectMapper().createParser(inputFile);
@@ -73,6 +75,10 @@ public class JsonReader {
         this.languages = languages;
     }
 
+    public void setNameNormalizer(NameNormalizer normalizer) {
+        this.nameNormalizer = normalizer;
+    }
+
     public void readHeader() throws IOException {
         final String docType = readStartDocument();
 
@@ -106,12 +112,12 @@ public class JsonReader {
                 Iterable<PhotonDoc> docs;
                 if (parser.isExpectedStartObjectToken()) {
                     parseDoc = parsePlaceDocument();
-                    docs = parseDoc.asMultiAddressDocs(countryFilter, languages);
+                    docs = parseDoc.asMultiAddressDocs(countryFilter, languages, nameNormalizer);
                 } else if (parser.isExpectedStartArrayToken()) {
                     List<PhotonDoc> docList = new ArrayList<>();
                     while (parser.nextToken() != JsonToken.END_ARRAY) {
                         parseDoc = parsePlaceDocument();
-                        final var doc = parseDoc.asSimpleDoc(languages);
+                        final var doc = parseDoc.asSimpleDoc(languages, nameNormalizer);
                         if (doc.isUsefulForIndex()
                                 && (countryFilter == null
                                     || (doc.getCountryCode() != null

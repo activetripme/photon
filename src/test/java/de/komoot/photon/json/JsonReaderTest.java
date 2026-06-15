@@ -4,6 +4,7 @@ import de.komoot.photon.ConfigExtraTags;
 import de.komoot.photon.UsageException;
 import de.komoot.photon.nominatim.ImportThread;
 import de.komoot.photon.nominatim.model.AddressType;
+import de.komoot.photon.nominatim.model.NameNormalizer;
 import de.komoot.photon.nominatim.testdb.CollectingImporter;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -28,6 +29,7 @@ class JsonReaderTest {
     private ConfigExtraTags configExtraTags = new ConfigExtraTags();
     private String[] configCountries = null;
     private boolean configGeometryColumn = false;
+    private NameNormalizer nameNormalizer = NameNormalizer.empty();
 
     private static final String TEST_SIMPLE_CONTENT = """
             {"place_id":100818,"object_type":"W","object_id":223306798,"categories" : ["osm.waterway.stream"], "rank_address" : 0, "rank_search" : 22, "importance" : 0.10667666666666664,"name":{"name": "Spiersbach", "name:de": "Spiersbach", "alt_name": "Spirsbach"},"extra":{"boat": "no"},"country_code":"at","centroid":[9.53713454,47.27052526],"geometry":{"type":"LineString","coordinates":[[9.5461636,47.2415541],[9.5558108,47.2955234],[9.556083,47.2962812],[9.554958,47.2966235]]}}""";
@@ -53,6 +55,7 @@ class JsonReaderTest {
             reader.setUseFullGeometries(configGeometryColumn);
             reader.setCountryFilter(configCountries);
             reader.setLanguages(Set.of("en", "de"));
+            reader.setNameNormalizer(nameNormalizer);
 
             reader.readFile(importThread);
         } finally {
@@ -85,6 +88,38 @@ class JsonReaderTest {
                 .hasFieldOrPropertyWithValue("houseNumber", null)
                 .hasFieldOrPropertyWithValue("centroid", geomFactory.createPoint(new Coordinate(9.53713454, 47.27052526)))
                 .hasFieldOrPropertyWithValue("geometry", null);
+    }
+
+    @Test
+    void testStripsTypePrefixAndKeepsDisplay() throws IOException {
+        nameNormalizer = new NameNormalizer(Set.of("озеро", "lake"));
+        input.println("{\"type\":\"Place\",\"content\":{\"place_id\":555716,\"object_type\":\"R\","
+                + "\"object_id\":555716,\"categories\":[\"osm.water.lake\"],\"rank_address\":8,"
+                + "\"name\":{\"name\":\"озеро Байкал\",\"name:en\":\"Lake Baikal\"},"
+                + "\"country_code\":\"ru\",\"centroid\":[108.27,53.5]}}");
+
+        var importer = readJson();
+
+        assertThat(importer).singleElement()
+                // name — чистое (для поиска)
+                .hasFieldOrPropertyWithValue("name", Map.of("default", "Байкал", "en", "Baikal"))
+                // displayName — оригинал (для выдачи как properties.name)
+                .hasFieldOrPropertyWithValue("displayName", Map.of("default", "озеро Байкал", "en", "Lake Baikal"));
+    }
+
+    @Test
+    void testNoChangeWhenNormalizerEmpty() throws IOException {
+        // Регрессия: по умолчанию (normalizer=empty) name не меняется, displayName пуст.
+        input.println("{\"type\":\"Place\",\"content\":{\"place_id\":1,\"object_type\":\"R\","
+                + "\"object_id\":1,\"categories\":[\"osm.water.lake\"],\"rank_address\":8,"
+                + "\"name\":{\"name\":\"озеро Байкал\"},"
+                + "\"country_code\":\"ru\",\"centroid\":[108.27,53.5]}}");
+
+        var importer = readJson();
+
+        assertThat(importer).singleElement()
+                .hasFieldOrPropertyWithValue("name", Map.of("default", "озеро Байкал"))
+                .hasFieldOrPropertyWithValue("displayName", Map.of());
     }
 
     @Test

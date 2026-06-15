@@ -24,11 +24,18 @@ public class PlaceRowMapper implements RowMapper<PhotonDoc> {
     private final DBDataAdapter dbutils;
     private final Set<String> languages;
     private final boolean useGeometryColumn;
+    private final NameNormalizer nameNormalizer;
 
     public PlaceRowMapper(DBDataAdapter dbutils, Set<String> languages, boolean useGeometryColumn) {
+        this(dbutils, languages, useGeometryColumn, NameNormalizer.empty());
+    }
+
+    public PlaceRowMapper(DBDataAdapter dbutils, Set<String> languages, boolean useGeometryColumn,
+                          NameNormalizer nameNormalizer) {
         this.dbutils = dbutils;
         this.languages = languages;
         this.useGeometryColumn = useGeometryColumn;
+        this.nameNormalizer = nameNormalizer;
     }
 
     @Override
@@ -70,6 +77,8 @@ public class PlaceRowMapper implements RowMapper<PhotonDoc> {
                 .countryCode(rs.getString("country_code"))
                 .centroid(Objects.requireNonNull(dbutils.extractGeometry(rs, "centroid")))
                 .addressType(addressType);
+
+        nameNormalizer.applyTo(doc);
 
         if (useGeometryColumn) {
             try {

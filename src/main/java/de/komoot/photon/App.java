@@ -269,6 +269,7 @@ public class App {
         reader.setExtraTags(args.getExtraTags());
         reader.setCountryFilter(args.getCountryCodes());
         reader.setLanguages(args.getLanguages());
+        reader.setNameNormalizer(args.getNameNormalizer());
 
         reader.readHeader();
         final var importDate = reader.getImportDate();
@@ -309,6 +310,13 @@ public class App {
                                                           Server server) throws IOException {
         // Get database properties and ensure that the version is compatible.
         DatabaseProperties dbProperties = server.loadFromDatabase();
+
+        // CLI-флаг -name-prefixes-file переопределяет персистированные префиксы; иначе
+        // нормализатор восстанавливается из DB (см. DatabaseProperties.namePrefixes),
+        // так что update-путь самодостаточен без повторной передачи флага.
+        if (importFilterConfig.getNamePrefixesFile() != null) {
+            dbProperties.setNameNormalizer(importFilterConfig.getNameNormalizer());
+        }
 
         if (importFilterConfig.isExtraTagsSet()) {
             dbProperties.putConfigExtraTags(importFilterConfig.getExtraTags());
