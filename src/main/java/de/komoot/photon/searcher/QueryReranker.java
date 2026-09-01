@@ -52,6 +52,14 @@ public class QueryReranker implements Consumer<PhotonResult> {
                         return 0.8;
                     }
                 }
+                // Close name variant of the query («pelio» → «Pilion»,
+                // «Пилион» → «Πήλιο»): neither an exact match nor a prefix, but
+                // still the sought-after toponym. Credited below prefix matches
+                // and above the importance-only fallback (0.5 * importance) that
+                // non-matching names get.
+                if (StringSimilarity.isNameVariant(localeName, query)) {
+                    return 0.7;
+                }
             }
         }
 
