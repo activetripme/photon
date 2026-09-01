@@ -2,6 +2,7 @@ package de.komoot.photon.searcher;
 
 import de.komoot.photon.nominatim.model.PostcodeUtils;
 import de.komoot.photon.opensearch.DocFields;
+import de.komoot.photon.opensearch.Translit;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
@@ -219,7 +220,9 @@ public class QueryReranker implements Consumer<PhotonResult> {
     }
 
     private String normalize(String in) {
-        return WORD_BREAK_PATTERN.matcher(in.toLowerCase()).replaceAll(" ").strip();
+        // Transliterate so that names and queries written in different scripts
+        // («Пилион»/«Πήλιο»/«Pilion») compare equal during reranking.
+        return Translit.transliterate(WORD_BREAK_PATTERN.matcher(in.toLowerCase()).replaceAll(" ").strip());
     }
 
     private List<String> secondaryNames(PhotonResult result) {
