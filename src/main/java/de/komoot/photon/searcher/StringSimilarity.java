@@ -27,18 +27,26 @@ public final class StringSimilarity {
     /**
      * Whether two (already normalized) names are variants of the same toponym:
      * Damerau-Levenshtein distance within the ES-like AUTO edit budget
-     * (&lt;3 chars → 0, 3–5 → 1, ≥6 → 2 edits) or Jaro-Winkler similarity of at
-     * least {@link #VARIANT_THRESHOLD}. Requires at least 4 common-length
+     * (&lt;3 chars → 0, 3–5 → 1, ≥6 → 2 edits, budget taken from the
+     * <em>longer</em> name) or Jaro-Winkler similarity of at least
+     * {@link #VARIANT_THRESHOLD}. Requires at least 4 common-length
      * characters, shorter strings are never variants.
+     *
+     * <p>The budget is derived from the longer of the two names because
+     * transliteration legitimately changes length: «Πήλιο» → "pilio" drops the
+     * trailing consonant of "pelion", digraph mappings (th, ch, kh, shch) add
+     * characters. Measuring against the shorter name would reject exactly the
+     * cross-script pairs this check exists for.
      */
     public static boolean isNameVariant(String a, String b) {
         var ra = a.codePoints().toArray();
         var rb = b.codePoints().toArray();
         var shorter = Math.min(ra.length, rb.length);
+        var longer = Math.max(ra.length, rb.length);
         if (shorter < 4) {
             return false;
         }
-        if (damerauLevenshtein(ra, rb) <= autoFuzziness(shorter)) {
+        if (damerauLevenshtein(ra, rb) <= autoFuzziness(longer)) {
             return true;
         }
         return jaroWinkler(a, b) >= VARIANT_THRESHOLD;
