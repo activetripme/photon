@@ -43,12 +43,24 @@ public class OpenSearchSearchHandler implements SearchHandler<SimpleSearchReques
         // «скала Шаманка» (both tokens). The reranker then orders the merged
         // candidates, exact-name matches still win.
         var strict = sendQuery(buildQuery(request, false), extLimit);
-        var lenient = sendQuery(buildQuery(request, true), extLimit);
+        SearchResponse<OpenSearchResult> lenient = null;
+        if (!request.getSuggestAddresses()) {
+            // Address suggestion is a special autocomplete mode, keep its
+            // original retry-only-when-empty behaviour there.
+            lenient = sendQuery(buildQuery(request, true), extLimit);
+        } else {
+            var total = strict.hits().total();
+            if (total == null || total.value() == 0) {
+                lenient = sendQuery(buildQuery(request, true), extLimit);
+            }
+        }
 
         Set<String> merged = new HashSet<>();
         var results = Stream.concat(
                         ResultScorer.hitsToResultStream(strict),
-                        ResultScorer.hitsToResultStream(lenient))
+                        lenient == null
+                                ? Stream.<OpenSearchResult>empty()
+                                : ResultScorer.hitsToResultStream(lenient))
                 .filter(r -> merged.add(objectKey(r)));
 
         var stream = results
@@ -106,9 +118,10 @@ public class OpenSearchSearchHandler implements SearchHandler<SimpleSearchReques
     }
 
     private String objectKey(PhotonResult result) {
-        return result.getOrDefault("osm_type", "") + "/"
-                + result.getOrDefault("osm_id", "") + "/"
-                + result.getOrDefault("object_type", "");
+        // osm_id is stored as a number, osm_type/object_type as strings.
+        return String.valueOf(result.get("osm_type")) + "/"
+                + String.valueOf(result.get("osm_id")) + "/"
+                + String.valueOf(result.get("object_type"));
     }
 
     private SearchResponse<OpenSearchResult> sendQuery(Query query, int limit) {
