@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import de.komoot.photon.config.PhotonDBConfig;
+import de.komoot.photon.nominatim.model.NameNormalizer;
 import de.komoot.photon.opensearch.*;
 import de.komoot.photon.query.ReverseRequest;
 import de.komoot.photon.query.SimpleSearchRequest;
@@ -213,7 +214,12 @@ public class Server {
     }
 
     public SearchHandler<SimpleSearchRequest> createSearchHandler(int queryTimeoutSec) {
-        return new OpenSearchSearchHandler(client, queryTimeoutSec);
+        return createSearchHandler(queryTimeoutSec, null);
+    }
+
+    public SearchHandler<SimpleSearchRequest> createSearchHandler(int queryTimeoutSec,
+                                                                  @Nullable NameNormalizer nameNormalizer) {
+        return new OpenSearchSearchHandler(client, queryTimeoutSec, nameNormalizer);
     }
 
     public SearchHandler<StructuredSearchRequest> createStructuredSearchHandler(int queryTimeoutSec) {

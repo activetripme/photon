@@ -425,7 +425,7 @@ public class App {
                                 args.getDefaultLanguage(),
                                 args.getMaxResults(),
                                 dbProperties.getSupportGeometries()),
-                        server.createSearchHandler(args.getQueryTimeout()),
+                        server.createSearchHandler(args.getQueryTimeout(), dbProperties.getNameNormalizer()),
                         formatter));
 
                 config.routes.get("/structured", new GenericSearchHandler<>(

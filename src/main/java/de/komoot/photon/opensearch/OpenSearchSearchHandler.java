@@ -1,10 +1,12 @@
 package de.komoot.photon.opensearch;
 
+import de.komoot.photon.nominatim.model.NameNormalizer;
 import de.komoot.photon.query.SimpleSearchRequest;
 import de.komoot.photon.searcher.PhotonResult;
 import de.komoot.photon.searcher.QueryReranker;
 import de.komoot.photon.searcher.SearchHandler;
 import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.opensearch._types.SearchType;
 import org.opensearch.client.opensearch._types.query_dsl.Query;
@@ -22,10 +24,18 @@ public class OpenSearchSearchHandler implements SearchHandler<SimpleSearchReques
     private static final double NEG_DECAY_FACTOR = Math.log(0.5);
     private final OpenSearchClient client;
     private final String queryTimeout;
+    @Nullable
+    private final NameNormalizer nameNormalizer;
 
     public OpenSearchSearchHandler(OpenSearchClient client, int queryTimeout) {
+        this(client, queryTimeout, null);
+    }
+
+    public OpenSearchSearchHandler(OpenSearchClient client, int queryTimeout,
+                                   @Nullable NameNormalizer nameNormalizer) {
         this.client = client;
         this.queryTimeout = queryTimeout + "s";
+        this.nameNormalizer = nameNormalizer;
     }
 
     @Override
@@ -94,7 +104,14 @@ public class OpenSearchSearchHandler implements SearchHandler<SimpleSearchReques
     }
 
     private Query buildQuery(SimpleSearchRequest request, boolean lenient) {
-        final var query = new SearchQueryBuilder(request.getQuery(), lenient, request.getSuggestAddresses());
+        // Mirror the import-time type-prefix stripping: indexed search names have
+        // the prefix removed («скала Шаманка» is searchable as «Шаманка»), so the
+        // query must be stripped the same way or the extra token breaks the
+        // multi-token AND clauses.
+        var requestQuery = request.getQuery();
+        final var effectiveQuery = (requestQuery == null || nameNormalizer == null)
+                ? requestQuery : nameNormalizer.stripOne(requestQuery);
+        final var query = new SearchQueryBuilder(effectiveQuery, lenient, request.getSuggestAddresses());
         query.addCountryCodeFilter(request.getCountryCodes());
         query.addOsmTagFilter(request.getOsmTagFilters());
         query.addLayerFilter(request.getLayerFilters());
