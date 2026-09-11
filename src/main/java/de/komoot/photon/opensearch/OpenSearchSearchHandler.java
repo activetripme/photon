@@ -12,6 +12,8 @@ import org.opensearch.client.opensearch.core.SearchResponse;
 
 import java.io.IOException;
 import java.util.Comparator;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.stream.Stream;
 
 @NullMarked
@@ -32,14 +34,24 @@ public class OpenSearchSearchHandler implements SearchHandler<SimpleSearchReques
         // will be reranked and filtered later.
         final int extLimit = (int) Math.round(Math.max(6, request.getLimit()) * 1.5);
 
-        var results = sendQuery(buildQuery(request, false), extLimit);
+        // Both query variants always run and their results are merged, strict
+        // hits first and duplicates of the same object dropped. The lenient
+        // variant used to run only when the strict query returned NOTHING, so
+        // any single-token match satisfied the strict query and masked
+        // documents only the lenient query retrieves: «скала шаманка» matched
+        // an unrelated doc named «Скала» (one token) and hid the viewpoint
+        // «скала Шаманка» (both tokens). The reranker then orders the merged
+        // candidates, exact-name matches still win.
+        var strict = sendQuery(buildQuery(request, false), extLimit);
+        var lenient = sendQuery(buildQuery(request, true), extLimit);
 
-        var total = results.hits().total();
-        if (total == null || total.value() == 0) {
-            results = sendQuery(buildQuery(request, true), extLimit);
-        }
+        Set<String> merged = new HashSet<>();
+        var results = Stream.concat(
+                        ResultScorer.hitsToResultStream(strict),
+                        ResultScorer.hitsToResultStream(lenient))
+                .filter(r -> merged.add(objectKey(r)));
 
-        var stream = ResultScorer.hitsToResultStream(results)
+        var stream = results
                 .peek(r -> r.adjustScoreByImportance(IMPORTANCE_FACTOR * request.getImportanceWeight()));
 
         if (request.hasLocationBias()) {
@@ -91,6 +103,12 @@ public class OpenSearchSearchHandler implements SearchHandler<SimpleSearchReques
         query.addBoundingBox(request.getBbox());
 
         return query.build();
+    }
+
+    private String objectKey(PhotonResult result) {
+        return result.getOrDefault("osm_type", "") + "/"
+                + result.getOrDefault("osm_id", "") + "/"
+                + result.getOrDefault("object_type", "");
     }
 
     private SearchResponse<OpenSearchResult> sendQuery(Query query, int limit) {
